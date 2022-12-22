@@ -4,9 +4,23 @@ from dataclasses import dataclass
 from typing import Iterable
 
 import h5py
+import numpy as np
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.widgets import Footer, Tree, TreeNode, Header
+from textual.widgets import Footer, Header, Tree, TreeNode
+
+
+def present_leaf(leaf: h5py.HLObject):
+    "Try to present the leaf node in a human readable way."
+    cls = leaf.attrs.get("class", None)
+    # Is it a string?
+    if cls == b"char":
+        return "".join([chr(int(c)) for c in np.ravel(leaf)])
+    # Is it a small array?
+    if hasattr(leaf, "size") and leaf.size < 16:
+        return repr(np.array(leaf))
+    # Else, just return the repr
+    return repr(leaf)
 
 
 @dataclass
@@ -47,7 +61,8 @@ class H5Tree(Tree):
                     node.add(key, data=H5NodeData(data.path + (key,)))
             else:
                 # Else, we just show it as a leaf node
-                node.add(str(self._at_path(data.path)), allow_expand=False)
+                leaf_str = present_leaf(self._at_path(data.path))
+                node.add(leaf_str, allow_expand=False)
 
     def on_tree_node_selected(self, event: Tree.NodeSelected):
         self._load_node(event.node)
